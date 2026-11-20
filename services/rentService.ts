@@ -65,14 +65,18 @@ export async function generateMonthlyRentForActiveResidents({
 
     generatedRecords.push(record);
 
-    // Send Notification to resident
-    await createInAppNotification({
-      recipientId: resident.userId,
-      title: `Rent Due for ${billingMonth}`,
-      message: `Your rent for ${billingMonth} of ₹${rentAmount} is due on ${dueDate.toLocaleDateString('en-IN')}. Outstanding balance: ₹${totalPayable}.`,
-      type: 'Rent',
-      referenceId: record._id.toString(),
-    });
+    // Send In-App & Email Notification to resident
+    try {
+      await createInAppNotification({
+        recipientId: resident.userId,
+        title: `Rent Due for ${billingMonth}`,
+        message: `Dear ${resident.fullName}, your rent of ₹${rentAmount.toLocaleString('en-IN')} for ${billingMonth} is due on ${dueDate.toLocaleDateString('en-IN')}. Outstanding balance: ₹${totalPayable.toLocaleString('en-IN')}. Please submit payment.`,
+        type: 'Rent',
+        referenceId: record._id.toString(),
+      });
+    } catch (notifErr: any) {
+      console.error('[RentService] Error dispatching rent notification:', notifErr.message);
+    }
   }
 
   if (adminId && adminName) {

@@ -36,11 +36,23 @@ export async function comparePassword(password: string, hash: string): Promise<b
 
 export function extractAuthUser(req: NextRequest): TokenPayload | null {
   const authHeader = req.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    return verifyToken(token);
   }
-  const token = authHeader.substring(7);
-  return verifyToken(token);
+
+  // Also support ?token= in URL query params for direct browser downloads (e.g. Excel exports, PDF receipts)
+  try {
+    const url = new URL(req.url);
+    const queryToken = url.searchParams.get('token');
+    if (queryToken) {
+      return verifyToken(queryToken);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return null;
 }
 
 export function requireAuth(req: NextRequest, roles?: ('admin' | 'resident')[]): { user: TokenPayload } | { error: string; status: number } {

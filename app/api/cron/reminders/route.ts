@@ -10,9 +10,13 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     const secret = process.env.CRON_SECRET || 'pg_cron_secure_key_12345';
     
-    // Check cron authorization header
-    if (authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'Unauthorized cron trigger' }, { status: 401 });
+    // Check cron authorization header or allow logged-in admin token
+    const isCronSecret = authHeader === `Bearer ${secret}`;
+    const user = requireAuth(req);
+    const isAdmin = !('error' in user) && user.user.role === 'admin';
+
+    if (!isCronSecret && !isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized: Admin or valid cron secret required' }, { status: 401 });
     }
 
     await connectDB();

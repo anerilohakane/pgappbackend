@@ -28,7 +28,43 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { action, notificationId, fcmToken } = await req.json();
+    const body = await req.json();
+    const { action, notificationId, fcmToken, title, message, type = 'Announcement', targetResidentId } = body;
+
+    if (action === 'send' && auth.user.role === 'admin') {
+      if (!title || !message) {
+        return NextResponse.json({ error: 'Title and message are required' }, { status: 400 });
+      }
+
+      if (targetResidentId) {
+        const { ResidentProfile } = await import('@/models/ResidentProfile');
+        const profile = await ResidentProfile.findById(targetResidentId);
+        if (profile) {
+          await Notification.create({
+            recipientId: profile.userId,
+            title,
+            message,
+            type,
+            isRead: false,
+          });
+        }
+      } else {
+        // Broadcast to all active resident users
+        const { User } = await import('@/models/User');
+        const residents = await User.find({ role: 'resident', isActive: true });
+        const notifs = residents.map(u => ({
+          recipientId: u._id,
+          title,
+          message,
+          type,
+          isRead: false,
+        }));
+        if (notifs.length > 0) {
+          await Notification.insertMany(notifs);
+        }
+      }
+      return NextResponse.json({ success: true, message: 'Notification sent successfully' });
+    }
 
     if (action === 'read-all') {
       await Notification.updateMany({ recipientId: auth.user.userId }, { isRead: true });
