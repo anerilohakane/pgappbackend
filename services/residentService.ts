@@ -342,8 +342,16 @@ export async function updateResident(
   const previousValues = existing.toObject();
   const updated = await ResidentProfile.findByIdAndUpdate(id, data, { new: true });
 
-  if (data.fullName) {
-    await User.findByIdAndUpdate(existing.userId, { name: data.fullName });
+  const userUpdates: any = {};
+  if (data.fullName) userUpdates.name = data.fullName.trim();
+  if (data.email) userUpdates.email = data.email.toLowerCase().trim();
+  if (data.phone) userUpdates.phone = data.phone.trim();
+  if (data.password && data.password.trim()) {
+    userUpdates.password = await hashPassword(data.password.trim());
+  }
+
+  if (Object.keys(userUpdates).length > 0) {
+    await User.findByIdAndUpdate(existing.userId, userUpdates);
   }
 
   await logAudit({
@@ -353,7 +361,7 @@ export async function updateResident(
     adminId: adminInfo.adminId,
     adminName: adminInfo.adminName,
     previousValues,
-    newValues: data,
+    newValues: { ...data, password: data.password ? '[UPDATED]' : undefined },
   });
 
   return updated;
