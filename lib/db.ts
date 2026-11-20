@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import '@/models';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pg_management';
 
@@ -27,10 +28,8 @@ export async function connectDB(): Promise<typeof mongoose> {
       serverSelectionTimeoutMS: 5000,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then(async (m) => {
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
       console.log('[Database] MongoDB Connected successfully.');
-      // Register all models to prevent MissingSchemaError on populate
-      await import('@/models');
       return m;
     });
   }
@@ -44,3 +43,4 @@ export async function connectDB(): Promise<typeof mongoose> {
 
   return cached.conn;
 }
+

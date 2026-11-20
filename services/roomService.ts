@@ -1,5 +1,6 @@
 import { connectDB } from '@/lib/db';
 import { Room } from '@/models/Room';
+import { Bed } from '@/models/Bed';
 import { ResidentProfile } from '@/models/ResidentProfile';
 
 export async function getRooms(propertyId?: string) {
@@ -61,3 +62,39 @@ export async function updateRoom(id: string, data: Partial<any>) {
   if (!updated) throw new Error('Room not found');
   return updated;
 }
+
+export async function getBeds(propertyId?: string, roomId?: string) {
+  await connectDB();
+  const query: any = {};
+  if (propertyId) query.propertyId = propertyId;
+  if (roomId) query.roomId = roomId;
+  return Bed.find(query).populate('currentResidentId', 'fullName phone email').sort({ bedNumber: 1 });
+}
+
+export async function allocateBed({ bedId, residentId }: { bedId: string; residentId: string }) {
+  await connectDB();
+  const bed = await Bed.findById(bedId);
+  if (!bed) throw new Error('Bed not found');
+  bed.currentResidentId = residentId as any;
+  bed.isOccupied = true;
+  bed.status = 'Occupied';
+  await bed.save();
+  await ResidentProfile.findByIdAndUpdate(residentId, { bedId: bed._id });
+  return bed;
+}
+
+export async function vacateBed(bedId: string) {
+  await connectDB();
+  const bed = await Bed.findById(bedId);
+  if (!bed) throw new Error('Bed not found');
+  const residentId = bed.currentResidentId;
+  bed.currentResidentId = undefined;
+  bed.isOccupied = false;
+  bed.status = 'Vacant';
+  await bed.save();
+  if (residentId) {
+    await ResidentProfile.findByIdAndUpdate(residentId, { $unset: { bedId: 1 } });
+  }
+  return bed;
+}
+

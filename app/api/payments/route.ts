@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { connectDB } from '@/lib/db';
 import { submitPayment } from '@/services/paymentService';
 import { PaymentSubmission } from '@/models/PaymentSubmission';
 import { savePrivateFile } from '@/lib/storage';
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    await connectDB();
     const url = new URL(req.url);
     const status = url.searchParams.get('status') || undefined;
     let residentId = url.searchParams.get('residentId') || undefined;

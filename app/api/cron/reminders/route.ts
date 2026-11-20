@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { RentRecord } from '@/models/RentRecord';
 import { ResidentProfile } from '@/models/ResidentProfile';
 import { createInAppNotification } from '@/lib/notifications';
