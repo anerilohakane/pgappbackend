@@ -1,15 +1,20 @@
 import fs from 'fs';
 import path from 'path';
 
-const STORAGE_ROOT = path.resolve(process.cwd(), process.env.STORAGE_DIR || './uploads');
+// In serverless environments like Vercel, use /tmp or gracefully handle read-only filesystems
+const STORAGE_ROOT = process.env.VERCEL
+  ? path.join('/tmp', 'uploads')
+  : path.resolve(process.cwd(), process.env.STORAGE_DIR || './uploads');
 
-// Ensure storage subfolders exist
-['documents', 'receipts', 'payments', 'properties', 'complaints'].forEach((dir) => {
-  const fullPath = path.join(STORAGE_ROOT, dir);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
+function ensureDir(dirPath: string) {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+  } catch (err: any) {
+    console.warn('[Storage] Could not create storage directory:', dirPath, err.message);
   }
-});
+}
 
 export async function savePrivateFile(
   subfolder: 'documents' | 'receipts' | 'payments' | 'properties' | 'complaints',
@@ -18,9 +23,15 @@ export async function savePrivateFile(
 ): Promise<{ relativePath: string; fullPath: string }> {
   const safeFilename = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   const relativePath = path.join(subfolder, safeFilename).replace(/\\/g, '/');
+  const targetDir = path.join(STORAGE_ROOT, subfolder);
+  ensureDir(targetDir);
   const fullPath = path.join(STORAGE_ROOT, relativePath);
   
-  await fs.promises.writeFile(fullPath, buffer);
+  try {
+    await fs.promises.writeFile(fullPath, buffer);
+  } catch (err: any) {
+    console.warn('[Storage] writeFile failed (read-only environment):', err.message);
+  }
   return { relativePath, fullPath };
 }
 
@@ -36,4 +47,5 @@ export function maskAadhaar(aadhaar: string): string {
   if (clean.length < 12) return aadhaar;
   return `XXXX-XXXX-${clean.slice(-4)}`;
 }
+
 
