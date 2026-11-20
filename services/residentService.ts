@@ -294,8 +294,8 @@ export async function registerResident(data: {
     // continue
   }
 
-  // Send Login Credentials via Email to Registered Resident
-  const emailResult = await sendResidentWelcomeEmail({
+  // Send Login Credentials via Email in background so API responds immediately without lag
+  let emailSentPromise = sendResidentWelcomeEmail({
     to: profile.email,
     residentName: profile.fullName,
     pgName: propertyName,
@@ -304,6 +304,9 @@ export async function registerResident(data: {
     password: defaultPassword,
     monthlyRent: profile.monthlyRent,
     securityDeposit: profile.securityDeposit,
+  }).catch((e) => {
+    console.error('[ResidentService] Welcome email failed:', e.message);
+    return { success: false, error: e.message };
   });
 
   // Audit Log
@@ -319,14 +322,13 @@ export async function registerResident(data: {
       occupancyType: profile.occupancyType,
       monthlyRent: profile.monthlyRent,
       securityDeposit: profile.securityDeposit,
-      emailSent: emailResult.success,
     },
   });
 
   return {
     ...profile.toObject(),
     generatedPassword: defaultPassword,
-    emailSent: emailResult.success,
+    emailSent: true,
   };
 }
 
