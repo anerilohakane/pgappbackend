@@ -1,0 +1,160 @@
+import { connectDB } from '@/lib/db';
+import { RentRecord } from '@/models/RentRecord';
+import { ResidentProfile } from '@/models/ResidentProfile';
+import { createInAppNotification } from '@/lib/notifications';
+import { logAudit } from '@/lib/audit';
+
+export async function generateMonthlyRentForActiveResidents({
+  billingMonth,
+  adminId,
+  adminName,
+}: {
+  billingMonth: string; // "YYYY-MM"
+  adminId?: string;
+  adminName?: string;
+}) {
+  await connectDB();
+  const activeResidents = await ResidentProfile.find({
+    status: { $in: ['Active', 'Notice Period'] },
+  });
+
+  const generatedRecords: any[] = [];
+  const skippedRecords: string[] = [];
+
+  for (const resident of activeResidents) {
+    // Check if rent record already exists for this month
+    const existing = await RentRecord.findOne({
+      residentId: resident._id,
+      rentMonth: billingMonth,
+    });
+
+    if (existing) {
+      skippedRecords.push(resident.fullName);
+      continue;
+    }
+
+    // Calculate previous unpaid outstanding
+    const previousUnpaidRecords = await RentRecord.find({
+      residentId: resident._id,
+      rentMonth: { $lt: billingMonth },
+      outstandingAmount: { $gt: 0 },
+    });
+    const previousOutstanding = previousUnpaidRecords.reduce((acc, curr) => acc + curr.outstandingAmount, 0);
+
+    const [year, month] = billingMonth.split('-').map(Number);
+    const dueDay = resident.rentDueDay || 5;
+    const dueDate = new Date(year, month - 1, dueDay);
+
+    const rentAmount = resident.monthlyRent;
+    const totalPayable = rentAmount + previousOutstanding;
+
+    const record = await RentRecord.create({
+      residentId: resident._id,
+      propertyId: resident.propertyId,
+      roomId: resident.roomId,
+      bedId: resident.bedId,
+      rentMonth: billingMonth,
+      rentAmount,
+      dueDate,
+      previousOutstanding,
+      totalPayable,
+      amountPaid: 0,
+      outstandingAmount: totalPayable,
+      status: 'Unpaid',
+    });
+
+    generatedRecords.push(record);
+
+    // Send Notification to resident
+    await createInAppNotification({
+      recipientId: resident.userId,
+      title: `Rent Due for ${billingMonth}`,
+      message: `Your rent for ${billingMonth} of ₹${rentAmount} is due on ${dueDate.toLocaleDateString('en-IN')}. Outstanding balance: ₹${totalPayable}.`,
+      type: 'Rent',
+      referenceId: record._id.toString(),
+    });
+  }
+
+  if (adminId && adminName) {
+    await logAudit({
+      action: 'Batch Rent Generated',
+      module: 'Rent',
+      recordId: billingMonth,
+      adminId,
+      adminName,
+      newValues: {
+        billingMonth,
+        generatedCount: generatedRecords.length,
+        skippedCount: skippedRecords.length,
+      },
+    });
+  }
+
+  return { generatedRecords, skippedRecords };
+}
+
+export async function getRentRecords(filters: {
+  propertyId?: string;
+  residentId?: string;
+  rentMonth?: string;
+  status?: string;
+} = {}) {
+  await connectDB();
+  const query: any = {};
+  if (filters.propertyId) query.propertyId = filters.propertyId;
+  if (filters.residentId) query.residentId = filters.residentId;
+  if (filters.rentMonth) query.rentMonth = filters.rentMonth;
+  if (filters.status) query.status = filters.status;
+
+  return RentRecord.find(query)
+    .populate('residentId', 'fullName phone email')
+    .populate('propertyId', 'name')
+    .populate('roomId', 'roomNumber')
+    .populate('bedId', 'bedNumber')
+    .sort({ rentMonth: -1, dueDate: -1 });
+}
+
+export async function adjustRent({
+  rentRecordId,
+  adjustmentAmount,
+  adjustmentReason,
+  adminId,
+  adminName,
+}: {
+  rentRecordId: string;
+  adjustmentAmount: number; // positive or negative
+  adjustmentReason: string;
+  adminId: string;
+  adminName: string;
+}) {
+  await connectDB();
+  const record = await RentRecord.findById(rentRecordId);
+  if (!record) throw new Error('Rent record not found');
+
+  const prevPayable = record.totalPayable;
+  record.adjustmentAmount += adjustmentAmount;
+  record.adjustmentReason = adjustmentReason;
+  record.totalPayable += adjustmentAmount;
+  record.outstandingAmount = Math.max(0, record.totalPayable - record.amountPaid);
+
+  if (record.outstandingAmount === 0 && record.amountPaid >= record.totalPayable) {
+    record.status = 'Paid';
+  } else if (record.amountPaid > 0) {
+    record.status = 'Partially Paid';
+  }
+
+  await record.save();
+
+  await logAudit({
+    action: 'Rent Adjusted',
+    module: 'Rent',
+    recordId: rentRecordId,
+    adminId,
+    adminName,
+    previousValues: { totalPayable: prevPayable },
+    newValues: { adjustmentAmount, newTotalPayable: record.totalPayable, adjustmentReason },
+  });
+
+  return record;
+}
+
