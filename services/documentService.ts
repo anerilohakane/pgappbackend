@@ -15,6 +15,8 @@ export async function uploadDocument({
   fileSize,
   fileBuffer,
   documentNumber,
+  isUploadedByAdmin,
+  uploadedByAdminName,
 }: {
   residentId: string;
   category: 'Aadhaar Front' | 'Aadhaar Back' | 'PAN Card' | 'Passport' | 'Rental Agreement' | 'Other';
@@ -24,6 +26,8 @@ export async function uploadDocument({
   fileSize: number;
   fileBuffer: Buffer;
   documentNumber?: string;
+  isUploadedByAdmin?: boolean;
+  uploadedByAdminName?: string;
 }) {
   await connectDB();
   const resident = await ResidentProfile.findById(residentId);
@@ -48,6 +52,9 @@ export async function uploadDocument({
   const maskedNumber =
     category.includes('Aadhaar') && documentNumber ? maskAadhaar(documentNumber) : documentNumber || '';
 
+  // If uploaded by Admin (e.g. during onboarding or admin panel), auto-verify directly
+  const isAutoVerified = Boolean(isUploadedByAdmin);
+
   const doc = await ResidentDocument.create({
     residentId,
     category,
@@ -59,7 +66,9 @@ export async function uploadDocument({
     mimeType,
     fileSize,
     documentNumberMasked: maskedNumber,
-    verificationStatus: 'Pending',
+    verificationStatus: isAutoVerified ? 'Verified' : 'Pending',
+    verifiedAt: isAutoVerified ? new Date() : undefined,
+    verifiedBy: isAutoVerified ? (uploadedByAdminName || 'Admin (Onboarding)') : undefined,
   });
 
   return doc;

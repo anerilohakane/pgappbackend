@@ -194,6 +194,7 @@ export async function registerResident(data: {
   }
 
   // Upload Aadhaar and PAN Card proofs to Cloudinary & local storage
+  // When uploaded during Admin onboarding, mark as auto-verified directly
   if (data.aadhaarFrontFile?.base64) {
     try {
       const buffer = Buffer.from(data.aadhaarFrontFile.base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
@@ -206,6 +207,8 @@ export async function registerResident(data: {
         fileSize: data.aadhaarFrontFile.size || buffer.length,
         fileBuffer: buffer,
         documentNumber: data.aadhaarNumber,
+        isUploadedByAdmin: true,
+        uploadedByAdminName: data.adminName || 'Admin',
       });
     } catch (e: any) {
       console.error('[ResidentService] Error saving Aadhaar front proof:', e.message);
@@ -224,6 +227,8 @@ export async function registerResident(data: {
         fileSize: data.aadhaarBackFile.size || buffer.length,
         fileBuffer: buffer,
         documentNumber: data.aadhaarNumber,
+        isUploadedByAdmin: true,
+        uploadedByAdminName: data.adminName || 'Admin',
       });
     } catch (e: any) {
       console.error('[ResidentService] Error saving Aadhaar back proof:', e.message);
@@ -242,6 +247,8 @@ export async function registerResident(data: {
         fileSize: data.panCardFile.size || buffer.length,
         fileBuffer: buffer,
         documentNumber: data.panNumber,
+        isUploadedByAdmin: true,
+        uploadedByAdminName: data.adminName || 'Admin',
       });
     } catch (e: any) {
       console.error('[ResidentService] Error saving PAN card proof:', e.message);

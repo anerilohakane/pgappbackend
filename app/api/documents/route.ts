@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
       fileSize: file.size,
       fileBuffer: buffer,
       documentNumber,
+      isUploadedByAdmin: auth.user.role === 'admin',
+      uploadedByAdminName: auth.user.name || 'Admin',
     });
 
     return NextResponse.json({ success: true, document: doc }, { status: 201 });
