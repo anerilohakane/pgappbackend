@@ -6,6 +6,7 @@ import { PGProperty } from '@/models/PGProperty';
 import { SecurityDeposit } from '@/models/SecurityDeposit';
 import { DepositTransaction } from '@/models/DepositTransaction';
 import { ResidentDocument } from '@/models/ResidentDocument';
+import { RentRecord } from '@/models/RentRecord';
 import { hashPassword } from '@/lib/auth';
 import { createInAppNotification } from '@/lib/notifications';
 import { logAudit } from '@/lib/audit';
