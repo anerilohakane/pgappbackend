@@ -60,6 +60,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required payment submission fields' }, { status: 400 });
     }
 
+    // Strict validation for transaction ID and payment proof
+    const cleanTxn = transactionId.trim();
+    if (!cleanTxn || cleanTxn.length < 6) {
+      return NextResponse.json({ error: 'A valid Transaction UTR / Reference ID (minimum 6 characters) is mandatory.' }, { status: 400 });
+    }
+
+    if (!screenshot || screenshot.size === 0) {
+      return NextResponse.json({ error: 'Payment screenshot proof is mandatory. Please attach your payment screenshot.' }, { status: 400 });
+    }
+
     let screenshotPath = '';
     if (screenshot) {
       const buffer = Buffer.from(await screenshot.arrayBuffer());

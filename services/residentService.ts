@@ -93,6 +93,42 @@ export async function registerResident(data: {
 }) {
   await connectDB();
 
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(data.email.trim())) {
+    throw new Error('Please provide a valid email address.');
+  }
+
+  // Validate phone format (10-digit Indian mobile)
+  const phoneDigits = data.phone.replace(/\D/g, '');
+  if (phoneDigits.length !== 10) {
+    throw new Error('Phone number must be a valid 10-digit number.');
+  }
+
+  // Validate Aadhaar number (12 digits required)
+  const aadhaarDigits = (data.aadhaarNumber || '').replace(/\D/g, '');
+  if (aadhaarDigits.length !== 12) {
+    throw new Error('Aadhaar number must be exactly 12 digits.');
+  }
+
+  // Validate PAN format (5 uppercase letters, 4 digits, 1 uppercase letter)
+  const panUpper = (data.panNumber || '').trim().toUpperCase();
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  if (!panRegex.test(panUpper)) {
+    throw new Error('PAN Card number is invalid. Format must be 5 letters, 4 numbers, 1 letter (e.g. ABCDE1234F).');
+  }
+
+  // Validate required proofs
+  if (!data.aadhaarFrontFile?.base64) {
+    throw new Error('Aadhaar Card Front image is required.');
+  }
+  if (!data.aadhaarBackFile?.base64) {
+    throw new Error('Aadhaar Card Back image is required.');
+  }
+  if (!data.panCardFile?.base64) {
+    throw new Error('PAN Card document image is required.');
+  }
+
   // Check unique email and phone
   const existingUser = await User.findOne({
     $or: [{ email: data.email.toLowerCase().trim() }, { phone: data.phone.trim() }],

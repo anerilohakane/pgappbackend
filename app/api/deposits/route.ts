@@ -32,6 +32,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+
+    if (!body.depositId || !body.amount || Number(body.amount) <= 0) {
+      return NextResponse.json({ error: 'Deposit ID and a positive payment amount are required.' }, { status: 400 });
+    }
+
+    if (body.paymentMethod !== 'Cash' && (!body.transactionReference || body.transactionReference.trim().length < 6)) {
+      return NextResponse.json({ error: 'Valid Transaction Reference / UTR (minimum 6 characters) is required for online deposit payments.' }, { status: 400 });
+    }
+
     const result = await recordDepositPayment({
       ...body,
       adminId: auth.user.userId,
