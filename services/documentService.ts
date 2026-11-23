@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import { ResidentDocument } from '@/models/ResidentDocument';
 import { ResidentProfile } from '@/models/ResidentProfile';
@@ -55,6 +56,12 @@ export async function uploadDocument({
   // If uploaded by Admin (e.g. during onboarding or admin panel), auto-verify directly
   const isAutoVerified = Boolean(isUploadedByAdmin);
 
+  // verifiedBy can be an ObjectId or null if string admin name
+  let verifiedById = undefined;
+  if (isAutoVerified && uploadedByAdminName && mongoose.Types.ObjectId.isValid(uploadedByAdminName)) {
+    verifiedById = new mongoose.Types.ObjectId(uploadedByAdminName);
+  }
+
   const doc = await ResidentDocument.create({
     residentId,
     category,
@@ -68,7 +75,7 @@ export async function uploadDocument({
     documentNumberMasked: maskedNumber,
     verificationStatus: isAutoVerified ? 'Verified' : 'Pending',
     verifiedAt: isAutoVerified ? new Date() : undefined,
-    verifiedBy: isAutoVerified ? (uploadedByAdminName || 'Admin (Onboarding)') : undefined,
+    verifiedBy: verifiedById,
   });
 
   return doc;

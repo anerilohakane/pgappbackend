@@ -208,7 +208,7 @@ export async function registerResident(data: {
         fileBuffer: buffer,
         documentNumber: data.aadhaarNumber,
         isUploadedByAdmin: true,
-        uploadedByAdminName: data.adminName || 'Admin',
+        uploadedByAdminName: data.adminId || 'Admin',
       });
     } catch (e: any) {
       console.error('[ResidentService] Error saving Aadhaar front proof:', e.message);
@@ -228,7 +228,7 @@ export async function registerResident(data: {
         fileBuffer: buffer,
         documentNumber: data.aadhaarNumber,
         isUploadedByAdmin: true,
-        uploadedByAdminName: data.adminName || 'Admin',
+        uploadedByAdminName: data.adminId || 'Admin',
       });
     } catch (e: any) {
       console.error('[ResidentService] Error saving Aadhaar back proof:', e.message);
@@ -248,7 +248,7 @@ export async function registerResident(data: {
         fileBuffer: buffer,
         documentNumber: data.panNumber,
         isUploadedByAdmin: true,
-        uploadedByAdminName: data.adminName || 'Admin',
+        uploadedByAdminName: data.adminId || 'Admin',
       });
     } catch (e: any) {
       console.error('[ResidentService] Error saving PAN card proof:', e.message);
