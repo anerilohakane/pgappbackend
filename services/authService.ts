@@ -46,10 +46,19 @@ export async function getUserProfile(userId: string) {
 
   let profileData: any = null;
   if (user.role === 'resident') {
-    profileData = await ResidentProfile.findOne({ userId: user._id })
+    const rawProfile = await ResidentProfile.findOne({ userId: user._id })
       .populate('propertyId', 'name address city')
-      .populate('roomId', 'roomNumber floor sharingType rentPerBed')
+      .populate('roomId', 'roomNumber floor sharingType rentPerBed defaultRent roomType')
       .populate('bedId', 'bedNumber');
+
+    if (rawProfile) {
+      const { ResidentDocument } = await import('@/models/ResidentDocument');
+      const docs = await ResidentDocument.find({ residentId: rawProfile._id }).sort({ createdAt: -1 });
+      profileData = {
+        ...rawProfile.toObject(),
+        documents: docs,
+      };
+    }
   }
 
   return { user, residentProfile: profileData };
