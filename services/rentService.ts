@@ -104,6 +104,55 @@ export async function getRentRecords(filters: {
   status?: string;
 } = {}) {
   await connectDB();
+
+  // If residentId is passed, auto-ensure rent record exists for current billing month
+  if (filters.residentId) {
+    try {
+      const resident = await ResidentProfile.findById(filters.residentId);
+      if (resident && resident.status !== 'Vacated') {
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        const existingCurrent = await RentRecord.findOne({
+          residentId: resident._id,
+          rentMonth: currentMonth,
+        });
+
+        if (!existingCurrent) {
+          // Calculate previous unpaid outstanding
+          const prevUnpaid = await RentRecord.find({
+            residentId: resident._id,
+            rentMonth: { $lt: currentMonth },
+            outstandingAmount: { $gt: 0 },
+          });
+          const previousOutstanding = prevUnpaid.reduce((acc, curr) => acc + curr.outstandingAmount, 0);
+
+          const dueDay = resident.rentDueDay || 5;
+          const dueDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
+          const rentAmount = resident.monthlyRent || 0;
+          const totalPayable = rentAmount + previousOutstanding;
+
+          await RentRecord.create({
+            residentId: resident._id,
+            propertyId: resident.propertyId,
+            roomId: resident.roomId,
+            bedId: resident.bedId,
+            rentMonth: currentMonth,
+            rentAmount,
+            dueDate,
+            previousOutstanding,
+            totalPayable,
+            amountPaid: 0,
+            outstandingAmount: totalPayable,
+            status: 'Unpaid',
+          });
+        }
+      }
+    } catch (e: any) {
+      console.error('[RentService] Error auto-generating current rent record:', e.message);
+    }
+  }
+
   const query: any = {};
   if (filters.propertyId) query.propertyId = filters.propertyId;
   if (filters.residentId) query.residentId = filters.residentId;

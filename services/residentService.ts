@@ -193,6 +193,32 @@ export async function registerResident(data: {
     });
   }
 
+  // Auto-create initial Monthly Rent Record for onboarding month so pending rent is immediately available
+  try {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const dueDay = profile.rentDueDay || 5;
+    const dueDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
+    const rentAmount = profile.monthlyRent || 0;
+
+    await RentRecord.create({
+      residentId: profile._id,
+      propertyId: profile.propertyId,
+      roomId: profile.roomId,
+      bedId: profile.bedId,
+      rentMonth: currentMonth,
+      rentAmount,
+      dueDate,
+      previousOutstanding: 0,
+      totalPayable: rentAmount,
+      amountPaid: 0,
+      outstandingAmount: rentAmount,
+      status: 'Unpaid',
+    });
+  } catch (rentErr: any) {
+    console.error('[ResidentService] Error creating initial rent record on onboarding:', rentErr.message);
+  }
+
   // Upload Aadhaar and PAN Card proofs to Cloudinary & local storage
   // When uploaded during Admin onboarding, mark as auto-verified directly
   if (data.aadhaarFrontFile?.base64) {
